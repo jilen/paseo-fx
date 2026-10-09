@@ -53,6 +53,7 @@ async function normalizeConfig(message: AcpStreamMessage, options: TransportOpti
   const ids = await options.models.read(options.cwd, env);
   payload.configOptions = config.map(option => {
     if (option.id === "provider") return { ...option, category: "fx_provider" };
+    if (option.id === "mode") return { ...option, name: "Permission mode", category: "fx_permission" };
     if (option.id !== "model") return option;
     const values = new Set(ids);
     if (typeof option.currentValue === "string") values.add(option.currentValue);

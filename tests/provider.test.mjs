@@ -60,6 +60,28 @@ test("session processes and model discovery use the selected workspace and envir
   assert.ok(processes.some(p => p.command === "models" && p.cwd === s.workspace && p.token === "workspace-env"));
 });
 
+test("permissions use a session setting without a duplicate main mode selector", { timeout: 10000 }, async t => {
+  const s = await setup(t);
+  const catalog = await s.sendRequest({ type: "catalog", requestId: "catalog", cwd: s.workspace });
+  assert.deepEqual(catalog.catalog.modes, []);
+  assert.equal(catalog.catalog.defaultMode, undefined);
+  await s.open();
+  const config = () => s.events.filter(event => event.type === "session.config").at(-1).config;
+  assert.deepEqual(config().modes, []);
+  assert.equal(config().mode, undefined);
+  const permission = () => config().settings.find(setting => setting.id === "mode");
+  assert.equal(permission().label, "Permission mode");
+  assert.deepEqual(permission().options.map(option => option.label), ["Ask", "Code"]);
+  assert.equal(permission().value, "code");
+  for (const value of ["ask", "code"]) {
+    const result = await s.sendRequest({ type: "session.configure", requestId: `permission-${value}`, sessionId: "session", changes: { settings: { mode: value } } });
+    assert.equal(result.type, "request.completed");
+    assert.equal(permission().value, value);
+    assert.deepEqual(config().modes, []);
+    assert.equal(config().mode, undefined);
+  }
+});
+
 test("deleted workspace discovery fails independently while valid sessions keep working", { timeout: 10000 }, async t => {
   const s = await setup(t);
   const missing = join(s.root, "deleted-worktree");

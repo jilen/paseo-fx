@@ -38,7 +38,12 @@ export function createProvider(options: FxProviderOptions = {}): ProviderRegistr
           ? [...values, "prompt.steer"] : values;
       let closed = false;
       let closePromise: Promise<void> | undefined;
-      const emit = (event: ProviderEvent) => { if (!closed) for (const listener of listeners) listener(event); };
+      const emit = (event: ProviderEvent) => {
+        // fx modes control permissions and are exposed as a session setting.
+        if (event.type === "session.config") event = { ...event, config: { ...event.config, mode: undefined, modes: [] } };
+        if (event.type === "catalog") event = { ...event, catalog: { ...event.catalog, defaultMode: undefined, modes: [] } };
+        if (!closed) for (const listener of listeners) listener(event);
+      };
       const createChannel = async (cwd: string, env: Readonly<Record<string, string>> = {}) => {
         const directory = await stat(cwd).catch(error => {
           throw new Error(`Cannot access fx workspace ${cwd}: ${error instanceof Error ? error.message : String(error)}`, { cause: error });

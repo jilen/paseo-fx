@@ -24,6 +24,7 @@ if (command === "models") {
   const configOptions = () => [
     { id: "provider", name: "Provider", category: "model", type: "select", currentValue: provider, options: ["fixture", "alternate"].map(value => ({ value, name: value })) },
     { id: "model", name: "Model", category: "model", type: "select", currentValue: model, options: [] },
+    { id: "mode", name: "Session mode", category: "mode", type: "select", currentValue: mode, options: [{ value: "ask", name: "Ask" }, { value: "code", name: "Code" }] },
   ];
   const reply = (id, result) => {
     if (id === activePrompt) activePrompt = undefined;
@@ -54,6 +55,7 @@ if (command === "models") {
     } else if (method === "session/set_config_option") {
       if (params.value === "hang") return;
       if (params.configId === "provider") { provider = params.value; model = provider === "alternate" ? "alternate-model" : "model-A"; }
+      else if (params.configId === "mode") mode = params.value;
       else model = params.value;
       notify({ sessionUpdate: "config_option_update", configOptions: configOptions() });
       reply(id, { configOptions: configOptions() });
