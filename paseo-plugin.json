@@ -1,0 +1,5 @@
+{
+  "id": "paseo-fx",
+  "description": "Use the fx coding agent in Paseo through ACP",
+  "requirements": { "paseo": "^0.11.0" }
+}
