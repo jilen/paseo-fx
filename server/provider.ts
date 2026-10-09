@@ -17,7 +17,6 @@ export interface FxProviderOptions {
 
 export function createProvider(options: FxProviderOptions = {}): ProviderRegistration {
   const command = options.command ?? ["fx"];
-  // Paseo evaluates a CommonJS bundle, where import.meta.url is unavailable.
   const logDirectory = options.logDirectory ?? join(homedir(), ".paseo", "plugin-logs", "paseo-fx");
   return {
     id: "fx", label: "fx", description: "fx coding agent", icon: "icon.svg",
@@ -33,9 +32,7 @@ export function createProvider(options: FxProviderOptions = {}): ProviderRegistr
       const diagnostics = new Map<ProviderConnection, () => FxTransport | undefined>();
       const operations = new Set<Promise<void>>();
       const listeners = new Set<(event: ProviderEvent) => void>();
-      // Paseo 0.10.2 always tries steering before replacement. Handle its
-      // admission request explicitly so an unavailable answer reaches that
-      // fallback instead of throwing during capability validation.
+      // Steering is handled by this provider outside the ACP adapter.
       const admissionCapabilities = (values: readonly string[]) =>
         request.capabilities.includes("prompt.steer") && !values.includes("prompt.steer")
           ? [...values, "prompt.steer"] : values;
