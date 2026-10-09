@@ -53,7 +53,13 @@ async function normalizeConfig(message: AcpStreamMessage, options: TransportOpti
   const ids = await options.models.read(options.cwd, env);
   payload.configOptions = config.map(option => {
     if (option.id === "provider") return { ...option, category: "fx_provider" };
-    if (option.id === "mode") return { ...option, name: "Permission mode", category: "fx_permission" };
+    if (option.id === "mode") {
+      // fx uses "auto" for its Code permission mode; Paseo exposes it as "code".
+      const rawOptions = Array.isArray(option.options) ? option.options : [];
+      const mappedOptions = rawOptions.map((opt: RecordValue) => opt?.value === "auto" ? { ...opt, value: "code" } : opt);
+      const currentValue = option.currentValue === "auto" ? "code" : option.currentValue;
+      return { ...option, name: "Permission mode", category: "fx_permission", options: mappedOptions, currentValue };
+    }
     if (option.id !== "model") return option;
     const values = new Set(ids);
     if (typeof option.currentValue === "string") values.add(option.currentValue);
@@ -340,7 +346,13 @@ export function createFxTransport(options: TransportOptions): FxTransport {
           loading = { requestId: message.id, sessionId: message.params.sessionId, updates: [], bytes: 0 };
         }
         if ("method" in message && "id" in message && message.method !== "session/prompt") {
-          pending.set(message.id, setTimeout(() => fail(new Error(`fx ACP ${message.method} timed out after ${options.requestTimeoutMs}ms`)), options.requestTimeoutMs));
+          const method = (message as { method: string }).method;
+          pending.set(message.id, setTimeout(() => fail(new Error(`fx ACP ${method} timed out after ${options.requestTimeoutMs}ms`)), options.requestTimeoutMs));
+        }
+        // Paseo exposes fx's "auto" mode as "code"; translate back for fx.
+        if ("method" in message && message.method === "session/set_config_option" && record(message.params)
+          && message.params.configId === "mode" && message.params.value === "code") {
+          message = { ...message, params: { ...message.params, value: "auto" } } as AcpStreamMessage;
         }
         return new Promise<void>((resolve, reject) => {
           child.stdin.write(`${JSON.stringify(message)}\n`, error => error ? reject(error) : resolve());

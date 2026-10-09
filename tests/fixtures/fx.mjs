@@ -16,15 +16,15 @@ if (command === "models") {
   if (settings().ignoreTerm) process.on("SIGTERM", () => {});
   let model = info().defaultModel ?? "model-A";
   let provider = process.env.FX_PROVIDER ?? "fixture";
-  let mode = "code";
+  let mode = "auto";
   const sessionId = "native-session";
   let permissionPrompt;
   let activePrompt;
-  const modes = () => ({ currentModeId: mode, availableModes: [{ id: "code", name: "Code" }, { id: "ask", name: "Ask" }] });
+  const modes = () => ({ currentModeId: mode, availableModes: [{ id: "auto", name: "Code" }, { id: "ask", name: "Ask" }] });
   const configOptions = () => [
     { id: "provider", name: "Provider", category: "model", type: "select", currentValue: provider, options: ["fixture", "alternate"].map(value => ({ value, name: value })) },
     { id: "model", name: "Model", category: "model", type: "select", currentValue: model, options: [] },
-    { id: "mode", name: "Session mode", category: "mode", type: "select", currentValue: mode, options: [{ value: "ask", name: "Ask" }, { value: "code", name: "Code" }] },
+    { id: "mode", name: "Session mode", category: "mode", type: "select", currentValue: mode, options: [{ value: "ask", name: "Ask" }, { value: "auto", name: "Code" }] },
   ];
   const reply = (id, result) => {
     if (id === activePrompt) activePrompt = undefined;
