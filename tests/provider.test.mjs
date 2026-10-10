@@ -71,7 +71,10 @@ test("permissions use a session setting without a duplicate main mode selector",
   assert.equal(config().mode, undefined);
   const permission = () => config().settings.find(setting => setting.id === "mode");
   assert.equal(permission().label, "Permission mode");
-  assert.deepEqual(permission().options.map(option => option.label), ["Ask", "Code"]);
+  assert.deepEqual(permission().options.map(({ label, value }) => ({ label, value })), [
+    { label: "Ask", value: "ask" },
+    { label: "Code", value: "code" },
+  ]);
   assert.equal(permission().value, "code");
   for (const value of ["ask", "code"]) {
     const result = await s.sendRequest({ type: "session.configure", requestId: `permission-${value}`, sessionId: "session", changes: { settings: { mode: value } } });
@@ -80,6 +83,8 @@ test("permissions use a session setting without a duplicate main mode selector",
     assert.deepEqual(config().modes, []);
     assert.equal(config().mode, undefined);
   }
+  const requests = (await readFile(join(s.root, "requests.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+  assert.deepEqual(requests.filter(request => request.method === "session/set_config_option").map(request => request.value), ["ask", "auto"]);
 });
 
 test("deleted workspace discovery fails independently while valid sessions keep working", { timeout: 10000 }, async t => {
