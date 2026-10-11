@@ -87,6 +87,15 @@ test("permissions use a session setting without a duplicate main mode selector",
   assert.deepEqual(requests.filter(request => request.method === "session/set_config_option").map(request => request.value), ["ask", "auto"]);
 });
 
+test("session open translates Paseo's code mode alias to fx's auto mode", { timeout: 10000 }, async t => {
+  const s = await setup(t);
+  // Paseo persists the permission setting value ("code") and sends it as the
+  // session's native mode too; fx only knows its "auto"/"ask" modes.
+  assert.equal((await s.open("session", { mode: "code" })).type, "session.ready");
+  const requests = (await readFile(join(s.root, "requests.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+  assert.deepEqual(requests.filter(request => request.method === "session/set_mode").map(request => request.modeId), ["auto"]);
+});
+
 test("deleted workspace discovery fails independently while valid sessions keep working", { timeout: 10000 }, async t => {
   const s = await setup(t);
   const missing = join(s.root, "deleted-worktree");

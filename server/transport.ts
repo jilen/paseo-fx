@@ -350,9 +350,16 @@ export function createFxTransport(options: TransportOptions): FxTransport {
           pending.set(message.id, setTimeout(() => fail(new Error(`fx ACP ${method} timed out after ${options.requestTimeoutMs}ms`)), options.requestTimeoutMs));
         }
         // Paseo exposes fx's "auto" mode as "code"; translate back for fx.
+        // Paseo applies the permission mode either as the "mode" config option
+        // (permission setting) or as the session's native mode (session draft);
+        // both carry the "code" alias and must reach fx as "auto".
         if ("method" in message && message.method === "session/set_config_option" && record(message.params)
           && message.params.configId === "mode" && message.params.value === "code") {
           message = { ...message, params: { ...message.params, value: "auto" } } as AcpStreamMessage;
+        }
+        if ("method" in message && message.method === "session/set_mode" && record(message.params)
+          && message.params.modeId === "code") {
+          message = { ...message, params: { ...message.params, modeId: "auto" } } as AcpStreamMessage;
         }
         return new Promise<void>((resolve, reject) => {
           child.stdin.write(`${JSON.stringify(message)}\n`, error => error ? reject(error) : resolve());

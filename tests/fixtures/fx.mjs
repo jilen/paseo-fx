@@ -33,7 +33,7 @@ if (command === "models") {
   const notify = update => console.log(JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: { sessionId, update } }));
   const handle = line => {
     const { id, method, params, result } = JSON.parse(line);
-    appendFileSync(join(root, "requests.jsonl"), `${JSON.stringify({ pid: process.pid, method, value: params?.value, permissionOutcome: result?.outcome, prompt: params?.prompt, steer: params?._meta?.fx?.steer === true })}\n`);
+    appendFileSync(join(root, "requests.jsonl"), `${JSON.stringify({ pid: process.pid, method, value: params?.value, modeId: params?.modeId, permissionOutcome: result?.outcome, prompt: params?.prompt, steer: params?._meta?.fx?.steer === true })}\n`);
     if (!method && id === "permission-request") {
       if (permissionPrompt !== undefined) {
         notify({ sessionUpdate: "agent_message_chunk", messageId: "after-permission", content: { type: "text", text: "after permission response" } });
@@ -55,12 +55,17 @@ if (command === "models") {
     } else if (method === "session/set_config_option") {
       if (params.value === "hang") return;
       if (params.configId === "provider") { provider = params.value; model = provider === "alternate" ? "alternate-model" : "model-A"; }
-      else if (params.configId === "mode") mode = params.value;
+      else if (params.configId === "mode") {
+        // fx only knows its native modes; "code" is Paseo's alias and must be translated.
+        if (!["auto", "ask"].includes(params.value)) return reply(id, { error: { code: -32602, message: "Unknown mode" } });
+        mode = params.value;
+      }
       else model = params.value;
       notify({ sessionUpdate: "config_option_update", configOptions: configOptions() });
       reply(id, { configOptions: configOptions() });
     } else if (method === "session/set_mode") {
       if (params.modeId === "bad") console.log(JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32602, message: "mode rejected" } }));
+      else if (!["auto", "ask"].includes(params.modeId)) console.log(JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32602, message: "Unknown mode" } }));
       else { mode = params.modeId; notify({ sessionUpdate: "current_mode_update", currentModeId: mode }); reply(id, {}); }
     } else if (method === "session/prompt") {
       const text = params.prompt.filter(part => part.type === "text").map(part => part.text).join("\n");
