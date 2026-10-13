@@ -60,37 +60,36 @@ test("session processes and model discovery use the selected workspace and envir
   assert.ok(processes.some(p => p.command === "models" && p.cwd === s.workspace && p.token === "workspace-env"));
 });
 
-test("permissions use a session setting without a duplicate main mode selector", { timeout: 10000 }, async t => {
+test("permission modes are exposed once, with Paseo's code alias", { timeout: 10000 }, async t => {
   const s = await setup(t);
   const catalog = await s.sendRequest({ type: "catalog", requestId: "catalog", cwd: s.workspace });
-  assert.deepEqual(catalog.catalog.modes, []);
-  assert.equal(catalog.catalog.defaultMode, undefined);
+  assert.deepEqual(catalog.catalog.modes.map(({ id, label }) => ({ id, label })), [
+    { id: "code", label: "Code" },
+    { id: "ask", label: "Ask" },
+  ]);
+  assert.equal(catalog.catalog.defaultMode, "code");
   await s.open();
   const config = () => s.events.filter(event => event.type === "session.config").at(-1).config;
-  assert.deepEqual(config().modes, []);
-  assert.equal(config().mode, undefined);
-  const permission = () => config().settings.find(setting => setting.id === "mode");
-  assert.equal(permission().label, "Permission mode");
-  assert.deepEqual(permission().options.map(({ label, value }) => ({ label, value })), [
-    { label: "Ask", value: "ask" },
-    { label: "Code", value: "code" },
+  assert.equal(config().mode, "code");
+  assert.deepEqual(config().modes.map(({ id, label }) => ({ id, label })), [
+    { id: "code", label: "Code" },
+    { id: "ask", label: "Ask" },
   ]);
-  assert.equal(permission().value, "code");
+  // The redundant "mode" config option is dropped rather than duplicated as a setting.
+  assert.equal(config().settings.some(setting => setting.id === "mode"), false);
   for (const value of ["ask", "code"]) {
-    const result = await s.sendRequest({ type: "session.configure", requestId: `permission-${value}`, sessionId: "session", changes: { settings: { mode: value } } });
+    const result = await s.sendRequest({ type: "session.configure", requestId: `permission-${value}`, sessionId: "session", changes: { mode: value } });
     assert.equal(result.type, "request.completed");
-    assert.equal(permission().value, value);
-    assert.deepEqual(config().modes, []);
-    assert.equal(config().mode, undefined);
+    assert.equal(config().mode, value);
   }
   const requests = (await readFile(join(s.root, "requests.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
-  assert.deepEqual(requests.filter(request => request.method === "session/set_config_option").map(request => request.value), ["ask", "auto"]);
+  assert.deepEqual(requests.filter(request => request.method === "session/set_mode").map(request => request.modeId), ["ask", "auto"]);
 });
 
 test("session open translates Paseo's code mode alias to fx's auto mode", { timeout: 10000 }, async t => {
   const s = await setup(t);
-  // Paseo persists the permission setting value ("code") and sends it as the
-  // session's native mode too; fx only knows its "auto"/"ask" modes.
+  // Paseo persists the code mode and sends it as the session's native mode;
+  // fx only knows its "auto"/"ask" modes.
   assert.equal((await s.open("session", { mode: "code" })).type, "session.ready");
   const requests = (await readFile(join(s.root, "requests.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
   assert.deepEqual(requests.filter(request => request.method === "session/set_mode").map(request => request.modeId), ["auto"]);

@@ -42,12 +42,12 @@ paseo plugin ls
 
 Select **fx** when creating a Paseo agent. Messages sent during an active turn steer it without interrupting the turn or dismissing pending permissions.
 
-Use **Permission mode** in the agent's session settings to control tool permissions:
+Use the agent's **Permission mode** selector to control tool permissions:
 
 - **Ask** maps to fx's `ask` permission mode and asks for approval when required.
 - **Code** maps to fx's `auto` permission mode: routine actions run automatically, while other actions go through automatic review and may require approval.
 
-Both modes can write code; Ask is not a read-only mode. Mode changes apply to the active session. See [fx's ACP mode documentation](https://fx.sh/docs/using-fx/acp#sessions-models-and-permissions) for details.
+Both modes can write code; Ask is not a read-only mode. Mode changes apply to the active session. The plugin renames fx's `auto` mode to Paseo's `code` and drops fx's duplicate mode config option, so the session exposes a single permission selector. See [fx's ACP mode documentation](https://fx.sh/docs/using-fx/acp#sessions-models-and-permissions) for details.
 
 The plugin exposes the features available through fx's ACP server. Features exclusive to fx's terminal UI may not appear in Paseo.
 

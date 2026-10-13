@@ -42,24 +42,38 @@ export interface FxTransport extends AcpStream {
   close(): Promise<void>;
 }
 
-// Discovery, config snapshots and rollback all use fx's authoritative model.
+// fx uses "auto" for its Code permission mode; Paseo exposes it as "code".
+const toPaseoMode = (mode: RecordValue): RecordValue =>
+  mode.id === "auto" ? { ...mode, id: "code", name: "Code" } : mode;
+
+// fx reports the permission mode twice: as the session's native modes and as a
+// "mode" config option. Paseo treats a config option's mode as a duplicate
+// selector, but it validates requested modes against the native mode list. So
+// expose the native modes (renaming fx's "auto" to Paseo's "code") and drop the
+// redundant config option. Discovery, config snapshots and rollback all use
+// fx's authoritative model.
 async function normalizeConfig(message: AcpStreamMessage, options: TransportOptions): Promise<AcpStreamMessage> {
   const payload = "result" in message ? message.result : "params" in message && record(message.params)
     ? message.params.update : undefined;
-  if (!record(payload) || !Array.isArray(payload.configOptions)) return message;
+  if (!record(payload)) return message;
+  if (record(payload.modes)) {
+    payload.modes = {
+      ...payload.modes,
+      currentModeId: payload.modes.currentModeId === "auto" ? "code" : payload.modes.currentModeId,
+      availableModes: Array.isArray(payload.modes.availableModes)
+        ? payload.modes.availableModes.filter(record).map(toPaseoMode)
+        : payload.modes.availableModes,
+    };
+  }
+  // current_mode_update carries a bare currentModeId instead of a mode list.
+  if (payload.currentModeId === "auto") payload.currentModeId = "code";
+  if (!Array.isArray(payload.configOptions)) return message;
   const config = payload.configOptions.filter(record);
   const provider = config.find(option => option.id === "provider")?.currentValue;
   const env = typeof provider === "string" ? { ...options.env, FX_PROVIDER: provider } : options.env;
   const ids = await options.models.read(options.cwd, env);
-  payload.configOptions = config.map(option => {
+  payload.configOptions = config.filter(option => option.id !== "mode").map(option => {
     if (option.id === "provider") return { ...option, category: "fx_provider" };
-    if (option.id === "mode") {
-      // fx uses "auto" for its Code permission mode; Paseo exposes it as "code".
-      const rawOptions = Array.isArray(option.options) ? option.options : [];
-      const mappedOptions = rawOptions.map((opt: RecordValue) => opt?.value === "auto" ? { ...opt, value: "code" } : opt);
-      const currentValue = option.currentValue === "auto" ? "code" : option.currentValue;
-      return { ...option, name: "Permission mode", category: "fx_permission", options: mappedOptions, currentValue };
-    }
     if (option.id !== "model") return option;
     const values = new Set(ids);
     if (typeof option.currentValue === "string") values.add(option.currentValue);
@@ -349,10 +363,9 @@ export function createFxTransport(options: TransportOptions): FxTransport {
           const method = (message as { method: string }).method;
           pending.set(message.id, setTimeout(() => fail(new Error(`fx ACP ${method} timed out after ${options.requestTimeoutMs}ms`)), options.requestTimeoutMs));
         }
-        // Paseo exposes fx's "auto" mode as "code"; translate back for fx.
-        // Paseo applies the permission mode either as the "mode" config option
-        // (permission setting) or as the session's native mode (session draft);
-        // both carry the "code" alias and must reach fx as "auto".
+        // Paseo exposes fx's "auto" mode as "code"; translate back for fx. The
+        // native session mode is the primary path; the config option is kept as
+        // a fallback in case a client still sends the mode as a setting.
         if ("method" in message && message.method === "session/set_config_option" && record(message.params)
           && message.params.configId === "mode" && message.params.value === "code") {
           message = { ...message, params: { ...message.params, value: "auto" } } as AcpStreamMessage;

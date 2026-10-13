@@ -39,9 +39,8 @@ export function createProvider(options: FxProviderOptions = {}): ProviderRegistr
       let closed = false;
       let closePromise: Promise<void> | undefined;
       const emit = (event: ProviderEvent) => {
-        // fx modes control permissions and are exposed as a session setting.
-        if (event.type === "session.config") event = { ...event, config: { ...event.config, mode: undefined, modes: [] } };
-        if (event.type === "catalog") event = { ...event, catalog: { ...event.catalog, defaultMode: undefined, modes: [] } };
+        // fx's permission modes are exposed as the session's native modes (the
+        // transport renames fx's "auto" to Paseo's "code"); no extra setting.
         if (!closed) for (const listener of listeners) listener(event);
       };
       const createChannel = async (cwd: string, env: Readonly<Record<string, string>> = {}) => {
